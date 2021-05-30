@@ -30,15 +30,18 @@ public class Client {
     private static final String QUIT = "QUIT";
 
     // buffer fields
-    private static String stringBuffer; /* will hold the current message from the server stored in a string
-                                                                       (created from charArray)        */
-    private static String[] fieldBuffer; /* will hold the current message from the server as an array of strings
-                                                                       (created from stringBuffer)     */
+    private static String stringBuffer; /*
+                                         * will hold the current message from the server stored in a string (created
+                                         * from charArray)
+                                         */
+    private static String[] fieldBuffer; /*
+                                          * will hold the current message from the server as an array of strings
+                                          * (created from stringBuffer)
+                                          */
 
     private static String scheduleString; // string to be scheduled
 
     // create server/list objects
-    
 
     public static void main(String[] args) throws IOException {
         setup();
@@ -52,26 +55,26 @@ public class Client {
             writeBytes(AUTH + " " + System.getProperty("user.name"));
 
             stringBuffer = bfr.readLine();
-            
 
-            // server replies with OK after printing out a welcome message and writing system info
+            // server replies with OK after printing out a welcome message and writing
+            // system info
 
             // System.out.println("Sending REDY ...");
             writeBytes(REDY);
             // System.out.println("REDY sent.");
-            
 
             // System.out.println("---------------");
             while (!(stringBuffer = bfr.readLine()).contains(NONE)) {
-                
+
                 if (stringBuffer.contains(JOBN)) {
                     // STORE JOB DATA
                     // System.out.println(stringBuffer); // print JOB info
-                    fieldBuffer = stringBuffer.split(" "); /* split String into array of strings
-                                                              (each string being a field of JOBN) */
+                    fieldBuffer = stringBuffer
+                            .split(" "); /*
+                                          * split String into array of strings (each string being a field of JOBN)
+                                          */
 
                     Job job = new Job(fieldBuffer); // create new Job object with data from fieldBuffer
-
 
                     // get list of capable servers (state information)
                     writeBytes(GETS + " Capable " + job.core + " " + job.memory + " " + job.disk);
@@ -79,7 +82,7 @@ public class Client {
                     // DATA _ _ message
                     stringBuffer = bfr.readLine();
                     // System.out.println("DATA received : " + stringBuffer);
-                    fieldBuffer = stringBuffer.split(" "); 
+                    fieldBuffer = stringBuffer.split(" ");
                     int numCapableServer = Integer.parseInt(fieldBuffer[1]); // fieldBuffer[1] -> no. of capable servers
 
                     writeBytes(OK); // confirmation for receiving DATA
@@ -88,7 +91,7 @@ public class Client {
                     // System.out.println("* * List of capable servers * *");
                     for (int i = 0; i < numCapableServer; i++) {
                         stringBuffer = bfr.readLine(); // read single server information
-                        
+
                         fieldBuffer = stringBuffer.split(" ");
                         String type = fieldBuffer[0];
                         int id = Integer.parseInt(fieldBuffer[1]);
@@ -103,9 +106,8 @@ public class Client {
                         serverList.add(s);
                         // System.out.println(stringBuffer);
                     }
-                    writeBytes(OK); 
+                    writeBytes(OK);
                     stringBuffer = bfr.readLine();
-
 
                     // ALGORITHM FOR JOB SCHEDULING
                     // determines which server each job is sent/scheduled to
@@ -114,25 +116,24 @@ public class Client {
                     serverList.clear();
 
                     /* SCHEDULE JOB */
-                   
-                    scheduleString = SCHD + " " + job.id + " " + s.type + " " + s.id ;
+
+                    scheduleString = SCHD + " " + job.id + " " + s.type + " " + s.id;
                     writeBytes(scheduleString);
-                   
+
                     stringBuffer = bfr.readLine();
 
                     writeBytes(REDY);
-                    
+
                     // request new job
-                     // send REDY for the next job
-                   
-                } 
-                else if (stringBuffer.contains(JCPL)) {
+                    // send REDY for the next job
+
+                } else if (stringBuffer.contains(JCPL)) {
                     writeBytes(REDY);
                 }
             }
 
             // System.out.println("TERMINATING CONNECTION ...");
-            
+
             writeBytes(QUIT);
 
             // System.out.println("CONNECTION TERMINATED.");
@@ -161,7 +162,7 @@ public class Client {
         dout.write((message + "\n").getBytes());
         dout.flush();
     }
-    
+
     public static void close() throws IOException {
         bfr.close();
         din.close();
@@ -174,38 +175,51 @@ public class Client {
         List<Server> activeList = new ArrayList<Server>();
         List<Server> tempList = new ArrayList<Server>();
         for (Server server : s) {
-            if (server.core >= core && server.memory >= memory && server.disk >= disk) {
-                if(server.state.equals("idle")){
-                  idleList.add(server);  
-                }
-                else if(server.state.equals("active")){
+            if(server.core>=core && server.memory>=memory && server.disk>=disk){
+                if (server.state.equals("idle")) {
+                    idleList.add(server);
+                } else if (server.state.equals("active")) {
                     activeList.add(server);
-                }
-                else {
+                } else {
                     tempList.add(server);
                 }
-                
             }
         }
-        if(idleList.size()>0){
-        for (Server server : idleList) {
-            if(server.core==core) return server;
+        if (idleList.size() > 0) {
+            
+            int bf = Integer.MAX_VALUE;
+            Server bestServer = idleList.get(0);
+            for (Server server : idleList) {
+                if (bf > server.core - core) {
+                    bf = server.core - core;
+                    bestServer = server;
+                }
             }
-            return idleList.get(0);
+            return bestServer;
         }
-        if(activeList.size()>0){
+        if (activeList.size() > 0) {
+            int bf = Integer.MAX_VALUE;
+            Server bestServer = activeList.get(0);
             for (Server server : activeList) {
-                if(server.core==core) return server;
+                if (bf > server.core - core && server.wjobs<bestServer.wjobs) {
+                    bf = server.core - core;
+                    bestServer = server;
                 }
-                return activeList.get(0);
             }
-        if(tempList.size()>0){
+            return bestServer;
+        }
+        if (tempList.size() > 0) {
+            int bf = Integer.MAX_VALUE;
+            Server bestServer = tempList.get(0);
             for (Server server : tempList) {
-                if(server.core==core) return server;
+                if (bf > server.core - core && server.wjobs<bestServer.wjobs) {
+                    bf = server.core - core;
+                    bestServer = server;
                 }
-                return tempList.get(0);
             }
-    
+            return bestServer;
+        }
+
         return s.get(0);
     }
 }
